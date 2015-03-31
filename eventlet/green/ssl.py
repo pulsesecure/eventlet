@@ -238,14 +238,17 @@ class GreenSSLSocket(__ssl.SSLSocket):
         if self._sslobj:
             raise ValueError("attempt to connect already-connected SSLSocket!")
         self._socket_connect(addr)
-        if has_ciphers:
-            self._sslobj = _ssl.sslwrap(self._sock, False, self.keyfile, self.certfile,
-                                        self.cert_reqs, self.ssl_version,
-                                        self.ca_certs, self.ciphers)
+
+        try:
+            sslwrap = _ssl.sslwrap
+        except AttributeError:
+            # sslwrap was removed in 2.7.9
+            self._sslobj = self._context._wrap_socket(self._sock, False, ssl_sock=self)
         else:
-            self._sslobj = _ssl.sslwrap(self._sock, False, self.keyfile, self.certfile,
-                                        self.cert_reqs, self.ssl_version,
-                                        self.ca_certs)
+            self._sslobj = sslwrap(self._sock, False, self.keyfile, self.certfile,
+                                   self.cert_reqs, self.ssl_version,
+                                   self.ca_certs, *([self.ciphers] if has_ciphers else []))
+        
         if self.do_handshake_on_connect:
             self.do_handshake()
 
